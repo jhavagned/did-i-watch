@@ -1,58 +1,73 @@
 import { useState, useEffect } from "react";
 import Hero from "./Hero";
-import { useParams } from "react-router-dom";
+import { useParams, Navigate } from "react-router-dom";
+import placeholderImage from "../assets/images/place-holder.png";
 
 const MovieView = () => {
   const { id } = useParams();
-  console.log(id)
-
   const [movieDetails, setMovieDetails] = useState({});
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     const apiKey = process.env.REACT_APP_TMDB_API_KEY;
-    fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${apiKey}&language=en-US`)
-      .then(response => response.json())
-      .then(data => {
-        setMovieDetails(data)
-        setIsLoading(false)
-      })
-  }, [id])
+    const fetchMovieDetails = async () => {
+      try {
+        const response = await fetch(
+          `https://api.themoviedb.org/3/movie/${id}?api_key=${apiKey}&language=en-US`
+        );
+        if (!response.ok) throw new Error("Failed to fetch movie details");
+        const data = await response.json();
+        setMovieDetails(data);
+      } catch (error) {
+        console.error("Error fetching movie details:", error);
+        setHasError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  function renderMovieDetails() {
-    if(isLoading) {
-      return <Hero text="Loading..." />
-    }
-    if(movieDetails) {
-      //TODO deal with possible missing image
-      const posterPath = `https://image.tmdb.org/t/p/w500${movieDetails.poster_path}`
-      //const posterPath = `https://image.tmdb.org/t/p/w500/null`
-      const backdropUrl =`https://image.tmdb.org/t/p/original${movieDetails.backdrop_path}`
-      const altMsg = `${movieDetails.original_title} image`
+    fetchMovieDetails();
+  }, [id]);
 
-      return (
-        <>
-          <Hero text={movieDetails.original_title} backdrop={backdropUrl} />
-          <div className="container my-5">
-            <div className="row">
-              {
-                posterPath &&
-                  <div className="col-md-3">
-                    <img src={posterPath} alt={altMsg} className="img-fluid shadow rounded" />
-                  </div>
-              }
-              <div className="col-md-9">
-                <h2>{movieDetails.original_title}</h2>
-                <p className="lead">
-                  {movieDetails.overview}
-                </p>
-              </div>
+  const renderMovieDetails = () => {
+    if (isLoading) return <Hero text="Loading..." />;
+    if (hasError)
+      return  <Navigate to="/404" />;
+
+    const BASE_IMAGE_URL = "https://image.tmdb.org/t/p/w500";
+    const posterUrl = movieDetails.poster_path
+      ? `${BASE_IMAGE_URL}${movieDetails.poster_path}`
+      : placeholderImage;
+    const backdropUrl = movieDetails.backdrop_path
+      ? `${BASE_IMAGE_URL}${movieDetails.backdrop_path}`
+      : placeholderImage;
+
+    return (
+      <>
+        <Hero text={movieDetails.original_title} backdrop={backdropUrl} />
+        <div className="container my-5">
+          <div className="row">
+            <div className="col-md-3">
+              <img
+                src={posterUrl}
+                alt={`${movieDetails.original_title} poster`}
+                className="img-fluid shadow rounded"
+              />
+            </div>
+            <div className="col-md-9">
+              <h2>{movieDetails.original_title}</h2>
+              <p className="lead">
+                {movieDetails.overview ||
+                  "No overview available for this movie."}
+              </p>
             </div>
           </div>
-        </>
-      )
-    }
-  }
+        </div>
+      </>
+    );
+  };
+
   return renderMovieDetails();
 };
 
